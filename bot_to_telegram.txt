@@ -1,0 +1,35 @@
+:delay 5
+:global botID "bot%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" ;  
+:global myChatID "%%%%%%%%%%%%%%" ; 
+:global content [/tool fetch url=("https://api.telegram.org/".$botID."/getUpdates") as-value output=user];
+:set content ($content ->"data")
+:global startLoc 0;
+:global endLoc 0;
+ 
+:if ([:len $content] > 23 ) do={
+ 
+:set startLoc  [:find $content "update_id" -1 ] ;
+:set startLoc ( $startLoc + 11 ) ;
+:local endLoc [:find $content "," $startLoc] ;
+:local messageId ([:pick $content $startLoc $endLoc] + (1));
+:put [$messageId] ;
+:#log info message="updateID $messageId" ;
+ 
+:set startLoc  [:find $content "text" -1 ] ;
+:set startLoc ( $startLoc  + 7 ) ;
+:local endLoc [:find $content "," ($startLoc)] ;
+:set endLoc ( $endLoc - 1 ) ;
+:local message [:pick $content ($startLoc + 1) $endLoc] ;
+:put [$message] ;
+:log warn message="Command $message received";
+ 
+:set startLoc  [:find $content "chat" -1 ] ;
+:set startLoc ( $startLoc + 12 ) ;
+:local endLoc [:find $content "," $startLoc] ;
+:local chatId ([:pick $content $startLoc $endLoc]);
+:put [$chatId] ;
+:#log info message="chatID $chatId ";
+ 
+:if (($chatId = $myChatID) and (:put [/system script find name=$message] != "")) do={
+:system script run $message} else={:tool fetch url=("https://api.telegram.org/".$botID."/sendmessage\?chat_id=".$chatId."&text=I can't talk with you. ") keep-result=no};
+:tool fetch url=("https://api.telegram.org/".$botID."/getUpdates\?offset=$messageId") keep-result=no; } 

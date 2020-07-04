@@ -1,6 +1,6 @@
 import telebot
 
-bot = telebot.TeleBot('974588367:AAFy00TzVqRiwaRLtx_l3kRkK41M2wkGtBc')
+bot = telebot.TeleBot('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 
 @bot.message_handler(commands=['start',''])
 def start_message(message):
@@ -27,3 +27,10 @@ def sticker_id(message):
     print(message)
 
 bot.polling()
+
+
+
+
+
+
+

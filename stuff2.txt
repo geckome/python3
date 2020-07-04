@@ -1,0 +1,393 @@
+system script add name="test" policy=read source={/tool fetch url="https://api.telegram.org/bot%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%/sendmessage\?chat_id=%%%%%%%%%%%%%%&text=Test OK, it's Working " keep-result=no}
+#system script add name="wolmypc" policy=read source="/tool wol mac=XX:XX:XX:XX:XX:XX interface=ifname\r\
+ #   \n/tool fetch url=\"https://api.telegram.org/boXXXXXXXXXXXXXXXXXXX\\?chat_id=%%%%%%%%&text=wol OK\" keep-resul\
+ #   t=no"
+
+
+#/tool fetch url="https://api.telegram.org/bot%%%%%%%%%%%%%%%%%%%%%%%%%%%%/sendmessage\?chat_id=%%%%%%%%%%%%%%%&text=test " keep-result=no
+
+
+
+
+#set global variables for use by other scripts - Schedule this to run frequently - once a minute or so.
+# update token and IDs with your own.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:delay 5
+:global botID "bot#####################" ;   token bot
+:global myChatID "##########" ;                               chat_id
+:global startLoc 0;
+:global endLoc 0;
+:tool fetch url=("https://api.telegram.org/bot#############################/getUpdates") ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+
+
+
+
+
+system script add name="reboot" policy=read source={/tool fetch url="https://api.telegram.org/bot#######################/sendmessage\?chat_id=############&text=Test OK, it's Working " keep-result=no}
+
+
+
+
+
+
+
+
+
+#set global variables for use by other scripts - Schedule this to run frequently - once a minute or so.
+# update token and IDs with your own.
+
+:global TelegramToken "bot################"
+:global TelegramGroupID "###############3"
+:global TelegramURL "https://api.telegram.org/bot################################/sendmessage\?chat_id=####################5&text=Test OK " 
+
+
+
+:tool fetch url=("https://api.telegram.org/bot#############################/sendMessage\?chat_id=#################&parse_mode=Markdown&text=")
+
+
+
+/tool fetch url="https://api.telegram.org/bot####################/sendmessage\?chat_id=###################3&text=reboot" [/system reboot] keep-result=no
+
+
+
+
+
+
+
+https://api.telegram.org/bot#####################/sendmessage\?chat_id=###################&text=Test OK, it's Working "
+
+:tool fetch url=("https://api.telegram.org/bot##########################/sendmessage\?chat_id=###################3&text=Test OK ")
+
+
+
+/system scheduler add interval=50s name=telegram_bot on-event=":local scriptname \"telegram_bot_main\"\r\
+    \n#:if ([:len [/system script job find script=\$\"scriptname\"]] > 0) do={\r\
+    \n#:log warning \"\$scriptname Already Running - killing old script before continuing\"\r\
+    \n#:foreach counter in=[/system script job find script=\$\"scriptname\"] do={\r\
+    \n#/system script job remove \$counter\r\
+    \n#}\r\
+    \n#}\r\
+    \n/system script run \$scriptname" policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon start-time=startup
+/system script
+add dont-require-permissions=yes name=telegram_bot_main policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=":global botID \"#######################\" \r\
+    \n:global mychat \"##############3\"\r\
+    \n:global urlStart \"https://api.telegram.org/bot###############################/sendmessage\?chat_id=##############3&text= OK \"\r\
+    \n\r\
+    \n#max updates to pull down at once\r\
+    \n:local updatelimit 100\r\
+    \n#set to 50s or less\r\
+    \n:local maxpolldelay 50\r\
+    \n\r\
+    \n#Functions\r\
+    \n:global processupdates [:parse [/system script get telegram_bot_processupdates source]]\r\
+    \n:global messageauth [:parse [/system script get telegram_bot_message_auth source]]\r\
+    \n:global messageunauth [:parse [/system script get telegram_bot_message_unauth source]]\r\
+    \n:global sendmessage [:parse [/system script get telegram_bot_sendmessage source]]\r\
+    \n:global sendlog [:parse [/system script get telegram_bot_log source]]\r\
+    \n:global leavechat [:parse [/system script get telegram_bot_leavechat source]]\r\
+    \n:global updateoffset [:parse [/system script get telegram_bot_updateoffset source]]\r\
+    \n\r\
+    \n\$sendlog msg=\"=====Beginning Cycle=====\"\r\
+    \n\r\
+    \n:global telegramdelay\r\
+    \n:local telegramdelaycurrent [/system scheduler get [find name=telegram_bot] interval]\r\
+    \n\r\
+    \n:local fetchURL (\"/getUpdates\\\?limit=\" . \$updatelimit . \"&allowed_updates=message\")\r\
+    \n\$sendlog msg=(\"GETURL: \" . \$fetchURL); :set fetchURL (\$urlStart . \$botID . \$fetchURL);\r\
+    \n:local content [/tool fetch url=\$fetchURL as-value output=user]\r\
+    \n\r\
+    \n#if new message exists send to updateprocessingqueue\r\
+    \n:if ((\$content->\"status\") = \"finished\" && [:len (\$content->\"data\")] > 33) do={\r\
+    \n  :local contentdata (\$content->\"data\")\r\
+    \n  \$processupdates updatecontent=(\$contentdata)\r\
+    \n} else={\r\
+    \n  \$sendlog msg=(\"Status: \" .(\$content->\"status\") . \" - No new data to process\")\r\
+    \n  :if (\$telegramdelay < \$maxpolldelay) do={\r\
+    \n    :set telegramdelay (\$telegramdelay + 10)\r\
+    \n\t\$sendlog msg=(\"Increased delay to \" . \$telegramdelay . \"s\")\r\
+    \n  }\r\
+    \n}\r\
+    \n\r\
+    \n:if ([:pick \$telegramdelaycurrent 6 [:len \$telegramdelaycurrent]] != \$telegramdelay) do={\r\
+    \n  /system scheduler set [find name=telegram_bot] interval=(\"00:00:\" . \$telegramdelay)\r\
+    \n}"
+add dont-require-permissions=no name=telegram_bot_sendmessage policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#Functions\r\
+    \n:global sendlog \r\
+    \n\r\
+    \n\$sendlog msg=\"RUN: sendmessage\"\r\
+    \n\r\
+    \n:global urlStart\r\
+    \n:global botID\r\
+    \n:local content\r\
+    \n:local fetchURL\r\
+    \n\r\
+    \n\$sendlog msg=(\"Sending message to \$chatid\")\r\
+    \n\r\
+    \n:set fetchURL (\"/sendmessage\\\?chat_id=\" . \$chatid . \"&text=\" . \$text)\r\
+    \n\$sendlog msg=(\"GETURL: \" . \$fetchURL); :set fetchURL (\$urlStart . \$botID . \$fetchURL);\r\
+    \n:set content [/tool fetch url=\$fetchURL as-value output=user]\r\
+    \n\r\
+    \n:if ((\$content->\"status\") = \"finished\") do={\r\
+    \n  \$sendlog msg=\"Message sent successfully\"\r\
+    \n} else={\r\
+    \n  \$sendlog msg=\"Message sent failed\"\r\
+    \n}\r\
+    \n\$sendlog msg=\"END: sendmessage\""
+add dont-require-permissions=no name=telegram_bot_message_unauth policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#Functions\r\
+    \n:global sendmessage\r\
+    \n:global sendlog\r\
+    \n\r\
+    \n\$sendlog msg=\"RUN: message_unauth\"\r\
+    \n\r\
+    \n:local unauthcmd 0;\r\
+    \n:local tmsg\r\
+    \n\r\
+    \n##### Commands that can be run unauthenticated ####\r\
+    \n\r\
+    \n  :if (message = \"wifi\") do={:set unauthcmd 1;\r\
+    \n    \$sendlog msg=\"Response: wifi\"\r\
+    \n    :local registrations [:len [/caps-man registration-table find]]\r\
+    \n    :set tmsg \"There are \$registrations wireless registrations\"\r\
+    \n  }\r\
+    \n  \r\
+    \n  :if (message = \"internet\") do={:set unauthcmd 1;\r\
+    \n    \$sendlog msg=\"Response: internet\"\r\
+    \n    :local internetspeed\r\
+    \n    /interface monitor-traffic ether1 once do={:set internetspeed ((\$\"rx-bits-per-second\"/1000) . \"kbps/\" . (\$\"tx-bit\
+    s-per-second\"/1000) . \"kbps\")}\r\
+    \n    :set tmsg \"Current internet bandwidth: \$internetspeed\"\r\
+    \n  }\r\
+    \n  \r\
+    \n  :if (message = \"blink\") do={:set unauthcmd 1;\r\
+    \n    \$sendlog msg=\"Response: blink\"\r\
+    \n\t:blink\r\
+    \n    :set tmsg \"Somewhere far away you're making a light blink.. aren't you fancy!\"\r\
+    \n  }\r\
+    \n  \r\
+    \n  :if (message = \"beep\") do={:set unauthcmd 1;\r\
+    \n    \$sendlog msg=\"Response: beep\"\r\
+    \n\t:beep \r\
+    \n    :set tmsg \"Keep that up and you're going to drive the network admin mad!\"\r\
+    \n  }\r\
+    \n  \r\
+    \n  :if (message ~\"^ping \") do={:set unauthcmd 1;\r\
+    \n    \$sendlog msg=(\"Response: ping specified host\")\r\
+    \n    :local pingrx\r\
+    \n    :local pingrtt\r\
+    \n    :local pinghost [:pick \$message 5 [:len \$message]]\r\
+    \n    :do {\r\
+    \n      /tool flood-ping count=5 [\$pinghost] do={:set pingrtt (\$\"max-rtt\"); :set pingrx (\$\"received\");}\r\
+    \n    } on-error={\r\
+    \n      \$sendlog msg=(\"Ping command failed\")\r\
+    \n      :set pingrx 0;\r\
+    \n    }\r\
+    \n    :if (\$pingrx > 0) do={\r\
+    \n      :set tmsg (\"PONG: Max \" . \$pingrtt . \"ms from \" . \$pinghost . \" with \" . \$received . \"/5 responses\")\r\
+    \n    } else={\r\
+    \n      :set tmsg (\"PONG: No response from \$pinghost\")\r\
+    \n    }\r\
+    \n  }\r\
+    \n  \r\
+    \n##### Final command if no unathenticated command is matched ####\r\
+    \n  \r\
+    \n  :if (\$unauthcmd = 0) do={\r\
+    \n    \$sendlog msg=\"Response: No valid unauth cmd\"\r\
+    \n    :set tmsg \"Invalid command, try: wifi,internet,blink,ping <ip>,beep (all lower case)\"\r\
+    \n  }\r\
+    \n  \r\
+    \n## Send message ##\r\
+    \n  :if ([:len \$tmsg] > 0) do={\r\
+    \n    \$sendlog msg=(\"Trigger sendmessage function for \$chatid with content: \$tmsg\")\r\
+    \n    \$sendmessage chatid=(\$chatid) text=(\$tmsg)\r\
+    \n  } else={\r\
+    \n    \$sendlog msg=\"No response to send\"\r\
+    \n  }\r\
+    \n\r\
+    \n"
+add dont-require-permissions=no name=telegram_bot_log policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "#Comment this line out if you don't want logging to happen\r\
+    \n:log info \"\$msg\""
+add dont-require-permissions=no name=telegram_bot_processupdates policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#Functions\r\
+    \n:global messageauth\r\
+    \n:global messageunauth\r\
+    \n:global sendmessage\r\
+    \n:global sendlog\r\
+    \n:global leavechat\r\
+    \n:global updateoffset\r\
+    \n\r\
+    \n\$sendlog msg=\"RUN: processupdates\"\r\
+    \n\r\
+    \n:global mychat\r\
+    \n:global urlStart\r\
+    \n:global botID\r\
+    \n:global telegramdelay\r\
+    \n:local fetchURL\r\
+    \n:local content\r\
+    \n:local start 0\r\
+    \n:local end 0\r\
+    \n:local update \"string\"\r\
+    \n:local message \"string\"\r\
+    \n:local chatid \"string\"\r\
+    \n:local chattype \"string\"\r\
+    \n\r\
+    \n:local nextupdatestart\r\
+    \n\r\
+    \n:local processcontent (\$updatecontent)\r\
+    \n:local contentchunk\r\
+    \n\$sendlog msg=(\"Process queue length: \" . [:len \$processcontent])\r\
+    \n\r\
+    \n:while ([:len \$processcontent] > 0) do={\r\
+    \n  \$sendlog msg=(\"Proccess length remaining: \" . [:len \$processcontent])\r\
+    \n\r\
+    \n#Determine if multiple updates are present (update1)\r\
+    \n  :set start [:find \$processcontent \"\\22update_id\\22:\"]\r\
+    \n  :set start (\$start + 12)\r\
+    \n  :set nextupdatestart ([:find \$processcontent \"\\22update_id\\22:\" \$start] -1)\r\
+    \n  :if (\$nextupdatestart < 1) do={:set nextupdatestart [:len \$processcontent]}\r\
+    \n  \$sendlog msg=(\"Start location: \$start | Next update start: \$nextupdatestart\")\r\
+    \n  :set contentchunk [:pick \$processcontent (\$start - 14) (\$nextupdatestart)]\r\
+    \n\r\
+    \n#breakup contentchunk into component variables\r\
+    \n  :set start [:find \$contentchunk \"\\22update_id\\22:\" 0]\r\
+    \n  :set start (\$start + 12)\r\
+    \n  :set end [:find \$contentchunk \",\" \$start]\r\
+    \n  :set update ([:pick \$contentchunk \$start \$end])\r\
+    \n  \r\
+    \n  \$sendlog msg=(\"Update ID: \$update\")\r\
+    \n  \r\
+    \n  :set start [:find \$contentchunk \"\\22text\\22:\" 0]\r\
+    \n  :set start (\$start  + 8)\r\
+    \n  :set end [:find \$contentchunk \"\\22\" \$start]\r\
+    \n  :set message [:pick \$contentchunk \$start \$end]\r\
+    \n  \r\
+    \n  \$sendlog msg=(\"Received Message: \$message\")\r\
+    \n  \r\
+    \n  :set start [:find \$contentchunk \"\\22id\\22:\"]\r\
+    \n  :set start (\$start + 5)\r\
+    \n  :set end [:find \$contentchunk \",\" \$start]\r\
+    \n  :set chatid [:pick \$contentchunk \$start \$end]\r\
+    \n  \r\
+    \n  :set start [:find \$contentchunk \"\\22chat\\22:\"]\r\
+    \n  :set start [:find \$contentchunk \"\\22type\\22:\"]\r\
+    \n  :set start (\$start + 8)\r\
+    \n  :set end [:find \$contentchunk \",\" \$start]\r\
+    \n  :set chattype [:pick \$contentchunk (\$start) (\$end -2)]\r\
+    \n \r\
+    \n  \$sendlog msg=(\"From Chat ID: \$chatid - Type: \$chattype\")\r\
+    \n  \r\
+    \n#is a group\? Leave and update offset\r\
+    \n:if (\$chattype != \"private\") do={\r\
+    \n  \$leavechat leaveroom=(\"\$chatid\") leaveupdateid=(\$update)\r\
+    \n} else={\r\
+    \n#is authed user\?\r\
+    \n  :if (\$chatid = \$mychat) do={\r\
+    \n    \$sendlog msg=(\"Run message_auth for \$chatid\")\r\
+    \n    \$messageauth message=(\$message) chatid=(\$chatid)\r\
+    \n  } else={\r\
+    \n    \$sendlog msg=(\"Run message_unauth for \$chatid\")\r\
+    \n    \$messageunauth message=(\$message) chatid=(\$chatid)\r\
+    \n  }\r\
+    \n}\r\
+    \n#Trim content \r\
+    \n  :set \$processcontent [:pick \$processcontent (\$nextupdatestart) [:len \$processcontent]]\r\
+    \n\r\
+    \n#end of while loop\r\
+    \n}\r\
+    \n\r\
+    \n#send update offset\r\
+    \n\$updateoffset updateid=(\$update)\r\
+    \n\r\
+    \n:if (\$telegramdelay > 10) do={\r\
+    \n  :set telegramdelay (10)\r\
+    \n  \$sendlog msg=(\"Reset delay to minimum \" . \$telegramdelay . \"s\")\r\
+    \n}\r\
+    \n\r\
+    \n\$sendlog msg=\"END: processupdates\""
+add dont-require-permissions=no name=telegram_bot_message_auth policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#Functions\r\
+    \n:global sendmessage\r\
+    \n:global sendlog \r\
+    \n\r\
+    \n\$sendlog msg=\"RUN: message_auth\"\r\
+    \n\r\
+    \n:local authcmd 0;\r\
+    \n:local tmsg\r\
+    \n\r\
+    \n\r\
+    \n  :if ([:len [/system script find name=\$message]] > 0) do={\r\
+    \n    \$sendlog msg=(\"Script: \$message run by \$chatid\")\r\
+    \n    /system script run \$message\r\
+    \n  } else={\r\
+    \n    :if (\$message = \"List\") do={\r\
+    \n      \$sendlog msg=\"listing scripts\"\r\
+    \n      :local scriptnames\r\
+    \n      :foreach counter in=[/system script find] do={\r\
+    \n        :set scriptnames (\$scriptnames . \",\" . [/system script get \$counter name])\r\
+    \n      }\r\
+    \n      :local authmessage \"Scripts: \$scriptnames\"\r\
+    \n      \$sendmessage chatid=\$chatid text=\$authmessage\r\
+    \n    } else={\r\
+    \n      \$sendlog msg=\"Unknown cmd\"\r\
+    \n      \$sendmessage chatid=\$chatid text=\"Unknown cmd\"\r\
+    \n    }      \r\
+    \n  }"
+add dont-require-permissions=no name=telegram_bot_leavechat policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#Functions\r\
+    \n:global sendlog \r\
+    \n:global updateoffset\r\
+    \n\$sendlog msg=\"RUN: leavechat\"\r\
+    \n\r\
+    \n:global urlStart\r\
+    \n:global botID\r\
+    \n:local content\r\
+    \n:local fetchURL\r\
+    \n\r\
+    \n:set fetchURL (\"/leaveChat\\\?chat_id=\" . \$leaveroom)\r\
+    \n\$sendlog msg=(\"GETURL: \" . \$fetchURL); :set fetchURL (\$urlStart . \$botID . \$fetchURL);\r\
+    \n:execute {:set content [/tool fetch url=\$fetchURL as-value output=user]}\r\
+    \n\r\
+    \n\$updateoffset updateid=(\$leaveupdateid)\r\
+    \n"
+add dont-require-permissions=no name=telegram_bot_updateoffset policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#Functions\r\
+    \n:global sendlog \r\
+    \n\$sendlog msg=\"RUN: updateoffset\"\r\
+    \n\r\
+    \n:global urlStart\r\
+    \n:global botID\r\
+    \n:global telegramdelay\r\
+    \n:local fetchURL\r\
+    \n:local content\r\
+    \n\r\
+    \n:local update (\$updateid + 1)\r\
+    \n\r\
+    \n#send update offset\r\
+    \n:set fetchURL (\"/getUpdates\\\?offset=\" . \$update . \"&limit=1&allowed_updates=message\")\r\
+    \n\$sendlog msg=(\"GETURL: \" . \$fetchURL); :set fetchURL (\$urlStart . \$botID . \$fetchURL);\r\
+    \n:set content [/tool fetch url=\$fetchURL as-value output=user]\r\
+    \n\r\
+    \n:if ((\$content->\"status\") = \"finished\") do={\r\
+    \n  \$sendlog msg=\"Update offset success\"\r\
+    \n} else={\r\
+    \n  \$sendlog msg=\"Update offset failed\"\r\
+    \n}"
