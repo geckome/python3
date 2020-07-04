@@ -1,0 +1,183 @@
+#source    https://habr.com/ru/post/483660/
+
+
+[xml]$xmlConfig = Get-Content -Path ("c:\telegram_bot.xml")
+$token = $xmlConfig.config.system.token
+$timeout = $xmlConfig.config.system.timeout.'#text'
+$users = (($xmlConfig.config.system.users).Split(",")).Trim()
+
+# Telegram URLs
+$URL_get = "https://api.telegram.org/bot$token/getUpdates"
+$URL_set = "https://api.telegram.org/bot$token/sendMessage"
+
+function getUpdates($URL)
+{
+    $json = Invoke-RestMethod -Uri $URL
+    $data = $json.result | Select-Object -Last 1
+    # Обнуляем переменные
+    $text = $null
+    $callback_data = $null
+
+    # Нажатие на кнопку
+    if($data.callback_query)
+    {  
+        $callback_data = $data.callback_query.data
+        $chat_id = $data.callback_query.from.id
+        $f_name = $data.callback_query.from.first_name
+        $l_name = $data.callback_query.from.last_name
+        $username = $data.callback_query.from.username
+    }
+    # Обычное сообщение
+    elseif($data.message)
+    {
+        $chat_id = $data.message.chat.id
+        $text = $data.message.text
+        $f_name = $data.message.chat.first_name
+        $l_name = $data.message.chat.last_name
+        $type = $data.message.chat.type
+        $username = $data.message.chat.username
+    }
+
+    $ht = @{}
+    $ht["chat_id"] = $chat_id
+    $ht["text"] = $text
+    $ht["f_name"] = $f_name
+    $ht["l_name"] = $l_name
+    $ht["username"] = $username
+    $ht["callback_data"] = $callback_data
+    # confirm
+    Invoke-RestMethod "$($URL)?offset=$($($data.update_id)+1)" -Method Get | Out-Null
+    
+    return $ht
+}
+function sendMessage($URL, $chat_id, $text)
+{
+    # создаем HashTable, можно объявлять ее и таким способом
+    $ht = @{
+        text = $text
+        # указан способ разметки Markdown
+        parse_mode = "Markdown"
+        chat_id = $chat_id
+    }
+    # Данные нужно отправлять в формате json
+    $json = $ht | ConvertTo-Json
+    # Делаем через Invoke-RestMethod, но никто не запрещает сделать и через Invoke-WebRequest
+    # Method Post - т.к. отправляем данные, по умолчанию Get
+    Invoke-RestMethod $URL -Method Post -ContentType 'application/json; charset=utf-8' -Body $json | Out-Null
+}
+function sendKeyboard($URL, $buttons, $chat_id, $text)
+{
+    
+    $keyboard = @{}
+    $lines = 3
+    # Тут необходимо использовать ArrayList, т.к внутри него мы будем хранить объекты - другие массивы
+    $buttons_line = New-Object System.Collections.ArrayList
+    for($i=0; $i -lt $buttons.Count; $i++)
+    {
+        # Добавляем кнопки в линию (line). Как только добавили 3 - добавляем line в keyboard
+        $buttons_line.Add($buttons[$i]) | Out-Null
+        # Проверяем счетчик - остаток от деления должен быть 0
+        if( ($i + 1 )%$lines -eq 0 )
+        {
+            # добавляем строку кнопок в keyboard
+            $keyboard["inline_keyboard"] += @(,@($buttons_line))
+            $buttons_line.Clear()
+        }
+    }
+    # добавляем оставшиеся последние кнопки
+    $keyboard["inline_keyboard"] += @(,@($buttons_line))
+
+    $ht = @{ 
+        parse_mode = "Markdown"
+        reply_markup = $keyboard
+        chat_id = $chat_id
+        text = $text
+    }
+
+    $json = $ht | ConvertTo-Json -Depth 5
+    Invoke-RestMethod $URL -Method Post -ContentType 'application/json; charset=utf-8' -Body $json
+    
+}
+
+while($true) # вечный цикл
+{
+    $return = getUpdates $URL_get
+    
+    if($users -contains $return.chat_id)
+    {
+
+        # Если обычное сообщение
+        if($return.text)
+        {
+            #write-host $return.chat_id
+            # http://apps.timwhitlock.info/emoji/tables/unicode#block-1-emoticons
+            #sendMessage $URL_set $return.chat_id (Get-Random("", "", "", ""))
+            switch -Wildcard ($return["text"])
+            {
+                "*привет*" {
+
+                    # Пустой массив
+                    $buttons = @()
+                    foreach($task in $xmlConfig.config.tasks.task)
+                    {
+                        $i++
+                        $button = @{ "text" = $task.name; callback_data = $task.script}
+                        $buttons += $button
+                    }
+                
+                    $text = "Available tasks:"
+                    $chat_id = $return.chat_id
+                    sendKeyboard $URL_set $buttons $chat_id $text
+                    #sendMessage $URL_set $return.chat_id "Привет, $($return["f_name"])" 
+                }
+                "*как дела?*" { sendMessage $URL_set $return.chat_id "Хорошо" }
+                default {sendMessage $URL_set $return.chat_id "$(Get-Random("", "", "", ""))"}
+            } 
+ 
+
+        }
+        # если было нажатие на кнопку
+        elseif($return.callback_data)
+        {
+            $script = $($return.callback_data)
+            $job_name = $($return.chat_id)
+            write-host "$script $job_name"
+
+            $script_block = { Param($script) ; Invoke-Expression $script }
+
+            #запускаем Job
+            Start-Job -ScriptBlock $script_block -ArgumentList $script -Name $job_name | Out-Null
+        }
+
+        # смотрим, какие job'ы уже выполнились
+        foreach($job in (Get-Job | Where {$_.State -eq "Completed"} ))
+        {
+            
+            $output = Get-Job -ID $job.Id | Receive-Job
+      
+            $text = $null
+            foreach($string in $output)
+            {
+                $text = "$text`n$string"
+            }
+            # отправляем результат тому, кто вызвал job
+            sendMessage $URL_set $job.Name $text
+
+            $job | Remove-Job
+
+            # и снова шлем клавиатуру
+            $text = "Available tasks:"
+            sendKeyboard $URL_set $buttons $job.Name $text
+        }
+
+
+    }
+    else
+    {
+        if($return.text)
+        {
+            sendMessage $URL_set $return.chat_id "Вы кто такие? Я вас не звал!"
+        }
+    }
+    Start-Sleep -s $timeout
+}
